@@ -160,6 +160,7 @@ void file_server(int connfd, int lru_size)
 			/* update pointer for next bit of reading */
 			bufp += nsofar;
 			nremain -= nsofar;
+			
 			if(*(bufp-1) == '\n')
 			{
 				*bufp = 0;
@@ -167,8 +168,22 @@ void file_server(int connfd, int lru_size)
 			}
 		}
 
+		fprintf(stderr, "BUF CONTENTS: %s \n", buf);
+		//case where server receives put
+		if(strncmp(buf, "PUT", 3) == 0){
+			fprintf(stderr, "SERVER RECEIVED PUT \n");
+			fprintf(stderr, "FILENAME: %s \n", buf+4);
+		}
+		//case where server receives get
+		else if(strncmp(buf, "GET", 3) == 0){
+			fprintf(stderr, "SERVER RECEIVED GET \n");
+		}
+
 		/* dump content back to client (again, must handle short counts) */
 		printf("server received %d bytes\n", MAXLINE-nremain);
+
+		//fprintf(stderr, "BUF CONTENTS SERVER a: %s\n", buf);
+
 		nremain = bufp - buf;
 		bufp = buf;
 		while(nremain > 0)

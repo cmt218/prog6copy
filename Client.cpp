@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sstream>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -151,13 +152,75 @@ void echo_client(int fd)
 	}
 }
 
+/*cmt218
+ *file_exists() - check if a file exists in the current directory
+ *
+ */
+bool file_exists(char *name){
+	if(FILE *test = fopen(name, "r")){
+		fclose(test);
+		return true;
+	}
+	return false;
+}
+
+/*cmt218
+ *get_size() - return the size of a file in bytes
+ *
+ */
+size_t get_size(char *name){
+	FILE *getsizeof = fopen(name, "r");
+	fseek(getsizeof, 0, SEEK_END);
+	size_t size = ftell(getsizeof);
+	rewind(getsizeof);
+	fclose(getsizeof);
+	return size;
+}
+
+
 /*
  * put_file() - send a file to the server accessible via the given socket fd
  */
 void put_file(int fd, char *put_name)
 {
-	/* TODO: implement a proper solution, instead of calling the echo() client */
-	echo_client(fd);
+	/* TODO: implement a proper solution, instead of calling the echo() client */	
+	
+	if(file_exists(put_name)){
+		//initially 10 to account for 'PUT' and new line characters being sent
+		size_t sendmsgsize = 10;
+		//add size of file name
+		sendmsgsize += sizeof(char*)*strlen(put_name);
+		//add size of byte number
+		size_t sendfilesize = get_size(put_name);
+		sendmsgsize += sendfilesize/10;
+		//add size of file
+		sendmsgsize += sendfilesize;
+
+
+		//begin building the client's PUT message
+		char sendmsg[sendmsgsize];
+		bzero(sendmsg, sendmsgsize);
+
+		//PUT <filename>\n
+		strcat(sendmsg, "PUT ");
+		strcat(sendmsg, put_name);
+		strcat(sendmsg, "\n");
+
+		//<# bytes>\n
+		char sizestr[sendfilesize/10];
+		sprintf(sizestr,"%d",sendfilesize);
+		strcat(sendmsg, sizestr);
+		strcat(sendmsg, "\n");
+		
+		//<file contents>\n
+
+		write(fd, sendmsg, strlen(sendmsg));
+		
+	}
+	else{
+		die("File Error: ", "file does not exist");
+	}
+	
 }
 
 /*

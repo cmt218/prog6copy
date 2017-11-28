@@ -34,3 +34,14 @@ void put_file(int fd, char *put_name);
  */
 void get_file(int fd, char *get_name, char *save_name);
 
+/*cmt218
+ *file_exists() - check if a file with name exists in current directory
+ *
+ */
+bool file_exists(char *name);
+
+/*cmt218
+ *get_size() - return the size of some file in bytes
+ *
+ */
+size_t get_size(char *name);
