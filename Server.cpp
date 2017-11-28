@@ -168,11 +168,10 @@ void file_server(int connfd, int lru_size)
 			}
 		}
 
-		fprintf(stderr, "BUF CONTENTS: %s \n", buf);
+		//fprintf(stderr, "BUF CONTENTS: %s \n", buf);
 		//case where server receives put
 		if(strncmp(buf, "PUT", 3) == 0){
-			fprintf(stderr, "SERVER RECEIVED PUT \n");
-			fprintf(stderr, "FILENAME: %s \n", buf+4);
+			put_file(buf);
 		}
 		//case where server receives get
 		else if(strncmp(buf, "GET", 3) == 0){
@@ -201,6 +200,49 @@ void file_server(int connfd, int lru_size)
 			bufp += nsofar;
 		}
 	}
+}
+
+/*
+ * put_file() - put a file in the server's directory
+ *
+ */
+void put_file(char* putmsg){
+	//parse out file name
+	char* endname = strstr(putmsg, "\n");
+	char* begname = putmsg+4;
+	int len = endname-begname;
+	char filename[len+2];
+	bzero(filename, len+2);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+	FILE *newptr = fopen(filename, "ab+");
+
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+2];
+	bzero(numbytesstring, len+2);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+
+	//expand the file to our needs
+	fseek(newptr, numbytes, SEEK_SET);
+
+	//isolate the file data
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char filedata[len+2];
+	bzero(filedata, len+2);
+	strncpy(filedata, begname, len);
+	filedata[len+1] = '\0';
+
+	int writefd = fileno(newptr);
+	write(writefd, filedata, len+1);
+
 }
 
 /*

@@ -47,3 +47,9 @@ void handle_requests(int listenfd, void (*service_function)(int, int), int param
  *                 then close the connection.
  */
 void file_server(int connfd, int lru_size);
+
+/*
+ * put_file() - put a file in the server's directory
+ *
+ */
+void put_file(char* putmsg);

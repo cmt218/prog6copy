@@ -218,12 +218,10 @@ void put_file(int fd, char *put_name)
 		for(int i=0;i<sendfilesize;i++){
 			fread(contentstr+i, 1, 1, sendptr);
 		}
-
-		fprintf(stderr, "TESTTEST: %s \n", contentstr);
-
 		strcat(sendmsg, contentstr);
+		strcat(sendmsg, "\n");
 
-
+		//send the PUT message
 		write(fd, sendmsg, strlen(sendmsg));
 		
 	}
