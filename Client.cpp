@@ -213,6 +213,16 @@ void put_file(int fd, char *put_name)
 		strcat(sendmsg, "\n");
 		
 		//<file contents>\n
+		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+		FILE* sendptr = fopen(put_name, "r");
+		for(int i=0;i<sendfilesize;i++){
+			fread(contentstr+i, 1, 1, sendptr);
+		}
+
+		fprintf(stderr, "TESTTEST: %s \n", contentstr);
+
+		strcat(sendmsg, contentstr);
+
 
 		write(fd, sendmsg, strlen(sendmsg));
 		
