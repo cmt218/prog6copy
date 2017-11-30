@@ -45,3 +45,5 @@ bool file_exists(char *name);
  *
  */
 size_t get_size(char *name);
+
+size_t getintstringlen(int size);

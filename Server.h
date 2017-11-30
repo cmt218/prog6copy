@@ -61,3 +61,5 @@ void put_file(char* putmsg);
 void get_file(int connfd, char* getmsg);
 
 size_t get_size(char *name);
+
+size_t getintstringlen(int size);

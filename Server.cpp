@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -202,6 +203,14 @@ void file_server(int connfd, int lru_size)
 		}
 	}
 }
+size_t getintstringlen(int size){
+	size_t l = 1;
+	int cpy = size;
+	while(cpy > 9){
+		l++;
+		cpy /= 10;
+	}
+}
 
 /*
  * put_file() - put a file in the server's directory
@@ -283,10 +292,17 @@ size_t get_size(char *name){
  		strcat(sendmsg, filename);
  		strcat(sendmsg, "\n");
 
- 		char sizestr[sendfilesize/10];
+ 		int sizelen = getintstringlen(sendfilesize);
+ 		char sizestr[sizelen];
+
  		sprintf(sizestr, "%d", sendfilesize);
+
+ 		fprintf(stderr, "SIZE STRING: %s \n", sizestr);
+
  		strcat(sendmsg, sizestr);
  		strcat(sendmsg, "\n");
+
+ 		fprintf(stderr, "MESSAGE TO SEND: %s \n", sendmsg);
 
  		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
  		for(int i=0;i<sendfilesize;i++){
@@ -295,6 +311,10 @@ size_t get_size(char *name){
  		strcat(sendmsg, contentstr);
  		strcat(sendmsg, "\n");
  		write(connfd, sendmsg, strlen(sendmsg));
+
+ 		fprintf(stderr, "MESSAGE TO SEND: %s \n", sendmsg);
+
+ 		
  	}
  	else{
  		printf("ERROR TO FIX ANOTHER TIME");

@@ -177,6 +177,14 @@ size_t get_size(char *name){
 	return size;
 }
 
+size_t getintstringlen(int size){
+	size_t l = 1;
+	int cpy = size;
+	while(cpy > 9){
+		l++;
+		cpy /= 10;
+	}
+}
 
 /*
  * put_file() - send a file to the server accessible via the given socket fd
@@ -207,7 +215,8 @@ void put_file(int fd, char *put_name)
 		strcat(sendmsg, "\n");
 
 		//<# bytes>\n
-		char sizestr[sendfilesize/10];
+		int sizelen = getintstringlen(sendfilesize);
+		char sizestr[sizelen];
 		sprintf(sizestr,"%d",sendfilesize);
 		strcat(sendmsg, sizestr);
 		strcat(sendmsg, "\n");
