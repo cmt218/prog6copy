@@ -256,13 +256,15 @@ void get_file(int fd, char *get_name, char *save_name)
 	strcat(getmsg, "\n");
 	write(fd, getmsg, strlen(getmsg));
 
+	
 	//receive response from server
+	/* set up a buffer, clear it, and read keyboard input */
+	const int MAXLINE = 8192;
+	char buf[MAXLINE];
+	bzero(buf, MAXLINE);
+
 	while(1)
 	{
-		/* set up a buffer, clear it, and read keyboard input */
-		const int MAXLINE = 8192;
-		char buf[MAXLINE];
-		bzero(buf, MAXLINE);
 
 		/* send keystrokes to the server, handling short counts */
 		size_t n = strlen(buf);
@@ -300,8 +302,52 @@ void get_file(int fd, char *get_name, char *save_name)
 
 		/* output the result */
 		printf("%s", buf);
+		break;
 	}
+
+	//create the new file in directory
+	//parse out file name
+	char* endname = strstr(buf, "\n");
+	char* begname = buf+3;
+	int len = endname-begname;
+	char filename[len+2];
+	bzero(filename, len+2);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+
+	fprintf(stderr, "NEW FILE NAME: %s \n", filename);
+
+	FILE *newptr = fopen(filename, "ab+");
+
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+2];
+	bzero(numbytesstring, len+2);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+
+	//expand the file to our needs
+	fseek(newptr, numbytes, SEEK_SET);
+
+	//isolate the file data
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char filedata[len+2];
+	bzero(filedata, len+2);
+	strncpy(filedata, begname, len);
+	filedata[len] = '\0';
+
+	int writefd = fileno(newptr);
+	write(writefd, filedata, len);
+
 }
+
+
 
 /*
  * main() - parse command line, open a socket, transfer a file
