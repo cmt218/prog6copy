@@ -215,8 +215,8 @@ void put_file(int fd, char *put_name)
 		strcat(sendmsg, "\n");
 
 		//<# bytes>\n
-		int sizelen = getintstringlen(sendfilesize);
-		char sizestr[sizelen];
+		//int sizelen = getintstringlen(sendfilesize);
+		char sizestr[sendmsgsize/10];
 		sprintf(sizestr,"%d",sendfilesize);
 		strcat(sendmsg, sizestr);
 		strcat(sendmsg, "\n");

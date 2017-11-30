@@ -173,11 +173,13 @@ void file_server(int connfd, int lru_size)
 		//case where server receives put
 		if(strncmp(buf, "PUT", 3) == 0){
 			put_file(buf);
+			continue;
 		}
 		
 		//case where server receives get
 		else if(strncmp(buf, "GET", 3) == 0){
 			get_file(connfd, buf);
+			continue;
 		}
 
 		/* dump content back to client (again, must handle short counts) */
@@ -217,6 +219,7 @@ size_t getintstringlen(int size){
  *
  */
 void put_file(char* putmsg){
+	
 	//parse out file name
 	char* endname = strstr(putmsg, "\n");
 	char* begname = putmsg+4;
@@ -269,7 +272,7 @@ size_t get_size(char *name){
  */
  void get_file(int connfd, char* get_msg){
  	//fprintf(stderr, "GET MESSAGE: %s", getmsg);
- 	write(connfd, get_msg, strlen(get_msg));
+ 	//write(connfd, get_msg, strlen(get_msg));
 
  	char* endname = strstr(get_msg, "\n");
  	char* begname = get_msg+4;
@@ -292,17 +295,15 @@ size_t get_size(char *name){
  		strcat(sendmsg, filename);
  		strcat(sendmsg, "\n");
 
- 		int sizelen = getintstringlen(sendfilesize);
- 		char sizestr[sizelen];
+ 		//int sizelen = getintstringlen(sendfilesize);
+ 		char sizestr[sendfilesize/10];
 
  		sprintf(sizestr, "%d", sendfilesize);
 
- 		fprintf(stderr, "SIZE STRING: %s \n", sizestr);
 
  		strcat(sendmsg, sizestr);
  		strcat(sendmsg, "\n");
 
- 		fprintf(stderr, "MESSAGE TO SEND: %s \n", sendmsg);
 
  		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
  		for(int i=0;i<sendfilesize;i++){
@@ -311,8 +312,6 @@ size_t get_size(char *name){
  		strcat(sendmsg, contentstr);
  		strcat(sendmsg, "\n");
  		write(connfd, sendmsg, strlen(sendmsg));
-
- 		fprintf(stderr, "MESSAGE TO SEND: %s \n", sendmsg);
 
  		
  	}
