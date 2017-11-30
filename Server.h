@@ -53,3 +53,11 @@ void file_server(int connfd, int lru_size);
  *
  */
 void put_file(char* putmsg);
+
+/*
+ * get_file() - return a file to the client
+ *
+ */
+void get_file(int connfd, char* getmsg);
+
+size_t get_size(char *name);

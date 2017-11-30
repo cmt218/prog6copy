@@ -173,9 +173,10 @@ void file_server(int connfd, int lru_size)
 		if(strncmp(buf, "PUT", 3) == 0){
 			put_file(buf);
 		}
+		
 		//case where server receives get
 		else if(strncmp(buf, "GET", 3) == 0){
-			fprintf(stderr, "SERVER RECEIVED GET \n");
+			get_file(connfd, buf);
 		}
 
 		/* dump content back to client (again, must handle short counts) */
@@ -238,12 +239,67 @@ void put_file(char* putmsg){
 	char filedata[len+2];
 	bzero(filedata, len+2);
 	strncpy(filedata, begname, len);
-	filedata[len+1] = '\0';
+	filedata[len] = '\0';
 
 	int writefd = fileno(newptr);
-	write(writefd, filedata, len+1);
-
+	write(writefd, filedata, len);
 }
+
+size_t get_size(char *name){
+	FILE *getsizeof = fopen(name, "r");
+	fseek(getsizeof, 0, SEEK_END);
+	size_t size = ftell(getsizeof);
+	rewind(getsizeof);
+	fclose(getsizeof);
+	return size;
+}
+
+/*
+ * get_file() - return a file to the client
+ *
+ */
+ void get_file(int connfd, char* get_msg){
+ 	//fprintf(stderr, "GET MESSAGE: %s", getmsg);
+ 	write(connfd, get_msg, strlen(get_msg));
+
+ 	char* endname = strstr(get_msg, "\n");
+ 	char* begname = get_msg+4;
+ 	int len = endname - begname;
+ 	char filename[len+2];
+ 	bzero(filename, len+2);
+ 	strncpy(filename, begname, len);
+ 	filename[len+1] = '\0';
+ 	FILE *newptr;
+ 	if(newptr = fopen(filename, "r")){
+ 		size_t sendmsgsize = 6;
+ 		sendmsgsize += sizeof(char*)*strlen(filename);
+ 		size_t sendfilesize = get_size(filename);
+ 		sendmsgsize += sendfilesize/10;
+ 		sendmsgsize += sendfilesize;
+ 		char sendmsg[sendmsgsize];
+ 		bzero(sendmsg, sendmsgsize);
+
+ 		strcat(sendmsg, "OK ");
+ 		strcat(sendmsg, filename);
+ 		strcat(sendmsg, "\n");
+
+ 		char sizestr[sendfilesize/10];
+ 		sprintf(sizestr, "%d", sendfilesize);
+ 		strcat(sendmsg, sizestr);
+ 		strcat(sendmsg, "\n");
+
+ 		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+ 		for(int i=0;i<sendfilesize;i++){
+ 			fread(contentstr+i, 1, 1, newptr);
+ 		}
+ 		strcat(sendmsg, contentstr);
+ 		strcat(sendmsg, "\n");
+ 		write(connfd, sendmsg, strlen(sendmsg));
+ 	}
+ 	else{
+ 		printf("ERROR TO FIX ANOTHER TIME");
+ 	}
+ }
 
 /*
  * main() - parse command line, create a socket, handle requests

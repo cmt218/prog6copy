@@ -187,7 +187,7 @@ void put_file(int fd, char *put_name)
 	
 	if(file_exists(put_name)){
 		//initially 10 to account for 'PUT' and new line characters being sent
-		size_t sendmsgsize = 10;
+		size_t sendmsgsize = 6;
 		//add size of file name
 		sendmsgsize += sizeof(char*)*strlen(put_name);
 		//add size of byte number
@@ -238,7 +238,60 @@ void put_file(int fd, char *put_name)
 void get_file(int fd, char *get_name, char *save_name)
 {
 	/* TODO: implement a proper solution, instead of calling the echo() client */
-	echo_client(fd);
+	size_t getmsgsize = 6;
+	getmsgsize += sizeof(char*)*strlen(get_name);
+	char getmsg[getmsgsize];
+	bzero(getmsg,getmsgsize);
+	strcat(getmsg, "GET ");
+	strcat(getmsg, get_name);
+	strcat(getmsg, "\n");
+	write(fd, getmsg, strlen(getmsg));
+
+	//receive response from server
+	while(1)
+	{
+		/* set up a buffer, clear it, and read keyboard input */
+		const int MAXLINE = 8192;
+		char buf[MAXLINE];
+		bzero(buf, MAXLINE);
+
+		/* send keystrokes to the server, handling short counts */
+		size_t n = strlen(buf);
+		size_t nremain = n;
+		ssize_t nsofar;
+		char *bufp = buf;
+
+		/* read input back from socket (again, handle short counts)*/
+		bzero(buf, MAXLINE);
+		bufp = buf;
+		nremain = MAXLINE;
+		while(1)
+		{
+			if((nsofar = read(fd, bufp, nremain)) < 0)
+			{
+				if(errno != EINTR)
+				{
+					die("read error: ", strerror(errno));
+				}
+				continue;
+			}
+			/* in echo, server should never EOF */
+			if(nsofar == 0)
+			{
+				die("Server error: ", "received EOF");
+			}
+			bufp += nsofar;
+			nremain -= nsofar;
+			if(*(bufp-1) == '\n')
+			{
+				*bufp = 0;
+				break;
+			}
+		}
+
+		/* output the result */
+		printf("%s", buf);
+	}
 }
 
 /*
