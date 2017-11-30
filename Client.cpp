@@ -301,7 +301,7 @@ void get_file(int fd, char *get_name, char *save_name)
 		}
 
 		/* output the result */
-		printf("%s", buf);
+		//printf("%s", buf);
 		break;
 	}
 
@@ -315,7 +315,7 @@ void get_file(int fd, char *get_name, char *save_name)
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 
-	fprintf(stderr, "NEW FILE NAME: %s \n", filename);
+	//fprintf(stderr, "NEW FILE NAME: %s \n", filename);
 
 	FILE *newptr = fopen(filename, "ab+");
 
@@ -332,6 +332,7 @@ void get_file(int fd, char *get_name, char *save_name)
 
 	//expand the file to our needs
 	fseek(newptr, numbytes, SEEK_SET);
+	//fseek(newptr, 0, SEEK_SET);
 
 	//isolate the file data
 	begname = endname+1;
