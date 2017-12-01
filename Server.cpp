@@ -205,6 +205,7 @@ void file_server(int connfd, int lru_size)
 		}
 	}
 }
+
 size_t getintstringlen(int size){
 	size_t l = 1;
 	int cpy = size;
@@ -212,6 +213,31 @@ size_t getintstringlen(int size){
 		l++;
 		cpy /= 10;
 	}
+}
+
+/*cmt218
+ *file_exists() - check if a file exists in the current directory
+ *
+ */
+bool file_exists(char *name){
+	if(FILE *test = fopen(name, "r")){
+		fclose(test);
+		return true;
+	}
+	return false;
+}
+
+/*cmt218
+ *get_size() - return size of a file in bytes
+ *
+ */
+size_t get_size(char *name){
+	FILE *getsizeof = fopen(name, "r");
+	fseek(getsizeof, 0, SEEK_END);
+	size_t size = ftell(getsizeof);
+	rewind(getsizeof);
+	fclose(getsizeof);
+	return size;
 }
 
 /*
@@ -228,6 +254,13 @@ void put_file(char* putmsg){
 	bzero(filename, len+2);
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
+	
+	//remove file if it exists because it will be overwritten
+	if(file_exists(filename)){
+		remove(filename);
+	}
+	
+	//create the file to be put
 	FILE *newptr = fopen(filename, "ab+");
 
 	//parse out bytes size
@@ -241,9 +274,6 @@ void put_file(char* putmsg){
 	numbytesstring[len+1] = '\0';
 	sscanf(numbytesstring, "%d", &numbytes);
 
-	//expand the file to our needs
-	fseek(newptr, numbytes, SEEK_SET);
-
 	//isolate the file data
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -253,17 +283,9 @@ void put_file(char* putmsg){
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
 
+	//write the data to the file
 	int writefd = fileno(newptr);
 	write(writefd, filedata, len);
-}
-
-size_t get_size(char *name){
-	FILE *getsizeof = fopen(name, "r");
-	fseek(getsizeof, 0, SEEK_END);
-	size_t size = ftell(getsizeof);
-	rewind(getsizeof);
-	fclose(getsizeof);
-	return size;
 }
 
 /*

@@ -48,6 +48,8 @@ void handle_requests(int listenfd, void (*service_function)(int, int), int param
  */
 void file_server(int connfd, int lru_size);
 
+bool file_exists(char *name);
+
 /*
  * put_file() - put a file in the server's directory
  *

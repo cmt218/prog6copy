@@ -315,8 +315,11 @@ void get_file(int fd, char *get_name, char *save_name)
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 
-	//fprintf(stderr, "NEW FILE NAME: %s \n", filename);
 
+	//remove file if it exists because it will be overwritten
+	if(file_exists(filename)){
+		remove(filename);
+	}
 	FILE *newptr = fopen(filename, "ab+");
 
 	//parse out bytes size
