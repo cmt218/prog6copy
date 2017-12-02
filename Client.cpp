@@ -194,6 +194,15 @@ void putc_file(int fd, char *put_name){
 
 	fprintf(stderr, "putting file with checksum \n");
 	if(file_exists(put_name)){
+	  FILE* sendptr = fopen(put_name, "rb");
+	  unsigned char digest[16];
+	  unsigned char data[1024];
+	  int read_bytes;
+	  MD5_CTX context;
+	  MD5_Init(&context);
+	  while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
+	    MD5_Update(&context, data, read_bytes);
+	  }
 		//initially 10 to account for 'PUT' and new line
 		//characters being sent
 		size_t sendmsgsize = 7;
@@ -224,7 +233,7 @@ void putc_file(int fd, char *put_name){
 		
 		//<file contents>\n
 		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
-		FILE* sendptr = fopen(put_name, "r");
+		
 		for(int i=0;i<sendfilesize;i++){
 			fread(contentstr+i, 1, 1, sendptr);
 		}
