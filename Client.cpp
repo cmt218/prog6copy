@@ -315,6 +315,14 @@ void get_file(int fd, char *get_name, char *save_name)
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 
+	//fprintf(stderr, "SAVE NAME: %s \n", save_name);
+
+	if(save_name){
+		//bzero(filename, len+2);
+		filename[strlen(save_name)];
+		strncpy(filename, save_name, strlen(save_name));
+	}
+
 
 	//remove file if it exists because it will be overwritten
 	if(file_exists(filename)){
