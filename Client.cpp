@@ -186,9 +186,57 @@ size_t getintstringlen(int size){
 	}
 }
 
-
+/*
+ * put_file() - send a file to the server using checksums
+ */
 void putc_file(int fd, char *put_name){
-  echo_client(fd);
+  //echo_client(fd);
+
+	if(file_exists(put_name)){
+		//initially 10 to account for 'PUT' and new line
+		//characters being sent
+		size_t sendmsgsize = 6;
+		//add size of file name
+		sendmsgsize += sizeof(char*)*strlen(put_name);
+		//add size of byte number
+		size_t sendfilesize = get_size(put_name);
+		sendmsgsize += sendfilesize/10;
+		//add size of file
+		sendmsgsize += sendfilesize;
+
+
+		//begin building the client's PUT message
+		char sendmsg[sendmsgsize];
+		bzero(sendmsg, sendmsgsize);
+
+		//PUT <filename>\n
+		strcat(sendmsg, "PUT ");
+		strcat(sendmsg, put_name);
+		strcat(sendmsg, "\n");
+
+		//<# bytes>\n
+		//int sizelen = getintstringlen(sendfilesize);
+		char sizestr[sendmsgsize/10];
+		sprintf(sizestr,"%d",sendfilesize);
+		strcat(sendmsg, sizestr);
+		strcat(sendmsg, "\n");
+		
+		//<file contents>\n
+		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+		FILE* sendptr = fopen(put_name, "r");
+		for(int i=0;i<sendfilesize;i++){
+			fread(contentstr+i, 1, 1, sendptr);
+		}
+		strcat(sendmsg, contentstr);
+		strcat(sendmsg, "\n");
+
+		//send the PUT message
+		write(fd, sendmsg, strlen(sendmsg));
+		
+	}
+	else{
+		die("File Error: ", "file does not exist");
+	}
 }
 
 
@@ -202,11 +250,6 @@ void put_file(int fd, char *put_name)
 	if(file_exists(put_name)){
 		//initially 10 to account for 'PUT' and new line
 		//characters being sent
-	  int checksum = 1;
-	  /*if(checksum == 1){
-	    MD5_CTX context;
-	    MD5_Init(context);
-	    }*/
 		size_t sendmsgsize = 6;
 		//add size of file name
 		sendmsgsize += sizeof(char*)*strlen(put_name);
@@ -385,12 +428,12 @@ int main(int argc, char **argv)
 	char *get_name = NULL;
 	int   port;
 	char *save_name = NULL;
-	int checksum = NULL;
+	int checksum = 0;
 
 	check_team(argv[0]);
 
 	/* parse the command-line options. */
-	while((opt = getopt(argc, argv, "hs:P:G:S:p:")) != -1)
+	while((opt = getopt(argc, argv, "hs:P:G:S:p:a:")) != -1)
 	{
 		switch(opt)
 		{
@@ -411,7 +454,7 @@ int main(int argc, char **argv)
 	if(put_name && checksum==1)
 	{
 	  putc_file(fd, put_name);
-	} else if(put_name && checksum == NULL){
+	} else if(put_name && checksum == 0){
 	  put_file (fd, put_name);
 	}
 	else
