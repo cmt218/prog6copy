@@ -192,10 +192,11 @@ size_t getintstringlen(int size){
 void putc_file(int fd, char *put_name){
   //echo_client(fd);
 
+	fprintf(stderr, "putting file with checksum \n");
 	if(file_exists(put_name)){
 		//initially 10 to account for 'PUT' and new line
 		//characters being sent
-		size_t sendmsgsize = 6;
+		size_t sendmsgsize = 7;
 		//add size of file name
 		sendmsgsize += sizeof(char*)*strlen(put_name);
 		//add size of byte number
@@ -210,7 +211,7 @@ void putc_file(int fd, char *put_name){
 		bzero(sendmsg, sendmsgsize);
 
 		//PUT <filename>\n
-		strcat(sendmsg, "PUT ");
+		strcat(sendmsg, "PUTC ");
 		strcat(sendmsg, put_name);
 		strcat(sendmsg, "\n");
 
@@ -433,7 +434,7 @@ int main(int argc, char **argv)
 	check_team(argv[0]);
 
 	/* parse the command-line options. */
-	while((opt = getopt(argc, argv, "hs:P:G:S:p:a:")) != -1)
+	while((opt = getopt(argc, argv, "hs:P:G:S:p:a")) != -1)
 	{
 		switch(opt)
 		{

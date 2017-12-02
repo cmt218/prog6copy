@@ -169,6 +169,11 @@ void file_server(int connfd, int lru_size)
 			}
 		}
 
+		if(strncmp(buf, "PUTC", 4) == 0){
+			putc_file(buf);
+			continue;
+		}
+
 		//fprintf(stderr, "BUF CONTENTS: %s \n", buf);
 		//case where server receives put
 		if(strncmp(buf, "PUT", 3) == 0){
@@ -286,6 +291,14 @@ void put_file(char* putmsg){
 	//write the data to the file
 	int writefd = fileno(newptr);
 	write(writefd, filedata, len);
+}
+
+/*
+ * putc_file() - put a file in the server's directory using checksums
+ *
+ */
+void putc_file(char* putmsg){
+	fprintf(stderr, "CALLING PUTC FILE \n");
 }
 
 /*
