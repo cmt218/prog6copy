@@ -299,6 +299,9 @@ void put_file(char* putmsg){
  */
 void putc_file(char* putmsg){
 	fprintf(stderr, "CALLING PUTC FILE \n");
+	fprintf(stderr, "PUTC MESSAGE: %s \n", putmsg);
+
+	
 }
 
 /*

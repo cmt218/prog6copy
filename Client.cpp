@@ -203,9 +203,12 @@ void putc_file(int fd, char *put_name){
 	  while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
 	    MD5_Update(&context, data, read_bytes);
 	  }
+	  MD5_Final(digest, &context);
+	  rewind(sendptr);
+
 		//initially 10 to account for 'PUT' and new line
 		//characters being sent
-		size_t sendmsgsize = 7;
+		size_t sendmsgsize = 24;
 		//add size of file name
 		sendmsgsize += sizeof(char*)*strlen(put_name);
 		//add size of byte number
@@ -229,6 +232,14 @@ void putc_file(int fd, char *put_name){
 		char sizestr[sendmsgsize/10];
 		sprintf(sizestr,"%d",sendfilesize);
 		strcat(sendmsg, sizestr);
+		strcat(sendmsg, "\n");
+
+		//<md5 hash>\n
+		char md5string[32];
+		for(int i=0; i<16; i++){
+			sprintf(md5string, "%02x", digest[i]);
+			strcat(sendmsg, md5string);
+		}
 		strcat(sendmsg, "\n");
 		
 		//<file contents>\n
