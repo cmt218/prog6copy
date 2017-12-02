@@ -186,6 +186,12 @@ size_t getintstringlen(int size){
 	}
 }
 
+
+void putc_file(int fd, char *put_name){
+  echo_client(fd);
+}
+
+
 /*
  * put_file() - send a file to the server accessible via the given socket fd
  */
@@ -194,7 +200,13 @@ void put_file(int fd, char *put_name)
 	/* TODO: implement a proper solution, instead of calling the echo() client */	
 	
 	if(file_exists(put_name)){
-		//initially 10 to account for 'PUT' and new line characters being sent
+		//initially 10 to account for 'PUT' and new line
+		//characters being sent
+	  int checksum = 1;
+	  /*if(checksum == 1){
+	    MD5_CTX context;
+	    MD5_Init(context);
+	    }*/
 		size_t sendmsgsize = 6;
 		//add size of file name
 		sendmsgsize += sizeof(char*)*strlen(put_name);
@@ -373,6 +385,7 @@ int main(int argc, char **argv)
 	char *get_name = NULL;
 	int   port;
 	char *save_name = NULL;
+	int checksum = NULL;
 
 	check_team(argv[0]);
 
@@ -387,6 +400,7 @@ int main(int argc, char **argv)
 		case 'G': get_name = optarg; break;
 		case 'S': save_name = optarg; break;
 		case 'p': port = atoi(optarg); break;
+		case 'a': checksum = 1; break;
 		}
 	}
 
@@ -394,9 +408,11 @@ int main(int argc, char **argv)
 	int fd = connect_to_server(server, port);
 
 	/* put or get, as appropriate */
-	if(put_name)
+	if(put_name && checksum==1)
 	{
-		put_file(fd, put_name);
+	  putc_file(fd, put_name);
+	} else if(put_name && checksum == NULL){
+	  put_file (fd, put_name);
 	}
 	else
 	{
