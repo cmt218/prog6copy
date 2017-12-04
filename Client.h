@@ -49,3 +49,5 @@ size_t get_size(char *name);
 size_t getintstringlen(int size);
 
 void putc_file(int fd, char *put_name);
+
+void compute_checksum(char* contentstr, int sendfilesize);

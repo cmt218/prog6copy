@@ -241,6 +241,8 @@ void putc_file(int fd, char *put_name){
 			strcat(sendmsg, md5string);
 		}
 		strcat(sendmsg, "\n");
+
+		fprintf(stderr, "CHECKSUM VALUE: %s \n", sendmsg);
 		
 		//<file contents>\n
 		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
@@ -248,6 +250,10 @@ void putc_file(int fd, char *put_name){
 		for(int i=0;i<sendfilesize;i++){
 			fread(contentstr+i, 1, 1, sendptr);
 		}
+		
+		compute_checksum(contentstr, sendfilesize);
+
+		rewind(sendptr);
 		strcat(sendmsg, contentstr);
 		strcat(sendmsg, "\n");
 
@@ -258,6 +264,30 @@ void putc_file(int fd, char *put_name){
 	else{
 		die("File Error: ", "file does not exist");
 	}
+}
+
+
+void compute_checksum(char* contentstr, int sendfilesize){
+	fprintf(stderr, "data string: %s \n", contentstr);
+	unsigned char digest[16];
+	char* data = contentstr;
+	int read_bytes;
+	MD5_CTX context;
+	MD5_Init(&context);
+	//while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
+	  MD5_Update(&context, data, sendfilesize);
+	  fprintf(stderr,"data string: %s \n", data);
+	//}
+	MD5_Final(digest, &context);
+
+	char md5string[32];
+	for(int i=0; i<16; i++){
+		sprintf(md5string, "%02x", digest[i]);
+		fprintf(stderr, "PUTC CHECKSUM: %s \n", md5string);
+	}
+
+
+	
 }
 
 

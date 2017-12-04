@@ -298,8 +298,66 @@ void put_file(char* putmsg){
  *
  */
 void putc_file(char* putmsg){
-	fprintf(stderr, "CALLING PUTC FILE \n");
-	fprintf(stderr, "PUTC MESSAGE: %s \n", putmsg);
+	//fprintf(stderr, "CALLING PUTC FILE \n");
+	//fprintf(stderr, "PUTC MESSAGE: %s \n", putmsg);
+
+	//parse out file name
+	char* endname = strstr(putmsg, "\n");
+	char* begname = putmsg+4;
+	int len = endname-begname;
+	char filename[len+2];
+	bzero(filename, len+2);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+2];
+	bzero(numbytesstring, len+2);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+	
+	//parse out the checksum
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char checksum[len+1];
+	bzero(checksum, len+1);
+	strncpy(checksum, begname, len);
+	checksum[len+1] = '\0';
+
+	//isolate the file data
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char filedata[len+2];
+	bzero(filedata, len+2);
+	strncpy(filedata, begname, len);
+	filedata[len] = '\0';
+
+	//TODO: fix checksum implementation
+	//see if the checksum matches
+	unsigned char digest[16];
+	char* data = filedata;
+	int read_bytes;
+	MD5_CTX context;
+	MD5_Init(&context);
+	//while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
+	  MD5_Update(&context, data, len+2);
+	  fprintf(stderr,"data string: %s \n", data);
+	//}
+	MD5_Final(digest, &context);
+
+	char md5string[32];
+	for(int i=0; i<16; i++){
+		sprintf(md5string, "%02x", digest[i]);
+		fprintf(stderr, "PUTC CHECKSUM: %s \n", md5string);
+	}
+
 
 	
 }
