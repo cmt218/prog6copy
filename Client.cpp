@@ -195,16 +195,7 @@ void putc_file(int fd, char *put_name){
 	fprintf(stderr, "putting file with checksum \n");
 	if(file_exists(put_name)){
 	  FILE* sendptr = fopen(put_name, "rb");
-	  unsigned char digest[16];
-	  unsigned char data[1024];
-	  int read_bytes;
-	  MD5_CTX context;
-	  MD5_Init(&context);
-	  while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
-	    MD5_Update(&context, data, read_bytes);
-	  }
-	  MD5_Final(digest, &context);
-	  rewind(sendptr);
+
 
 		//initially 10 to account for 'PUT' and new line
 		//characters being sent
@@ -228,11 +219,27 @@ void putc_file(int fd, char *put_name){
 		strcat(sendmsg, "\n");
 
 		//<# bytes>\n
-		//int sizelen = getintstringlen(sendfilesize);
 		char sizestr[sendmsgsize/10];
 		sprintf(sizestr,"%d",sendfilesize);
 		strcat(sendmsg, sizestr);
 		strcat(sendmsg, "\n");
+		
+		//get file contents
+		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+		for(int i=0;i<sendfilesize;i++){
+			fread(contentstr+i, 1, 1, sendptr);
+		}
+		
+		rewind(sendptr);
+
+		//get checksum
+		unsigned char digest[16];
+		char* data = contentstr;
+		int read_bytes;
+		MD5_CTX context;
+		MD5_Init(&context);
+	    MD5_Update(&context, data, sendfilesize+2);
+		MD5_Final(digest, &context);
 
 		//<md5 hash>\n
 		char md5string[32];
@@ -242,18 +249,7 @@ void putc_file(int fd, char *put_name){
 		}
 		strcat(sendmsg, "\n");
 
-		fprintf(stderr, "CHECKSUM VALUE: %s \n", sendmsg);
-		
 		//<file contents>\n
-		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
-		
-		for(int i=0;i<sendfilesize;i++){
-			fread(contentstr+i, 1, 1, sendptr);
-		}
-		
-		compute_checksum(contentstr, sendfilesize);
-
-		rewind(sendptr);
 		strcat(sendmsg, contentstr);
 		strcat(sendmsg, "\n");
 
@@ -267,28 +263,6 @@ void putc_file(int fd, char *put_name){
 }
 
 
-void compute_checksum(char* contentstr, int sendfilesize){
-	fprintf(stderr, "data string: %s \n", contentstr);
-	unsigned char digest[16];
-	char* data = contentstr;
-	int read_bytes;
-	MD5_CTX context;
-	MD5_Init(&context);
-	//while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
-	  MD5_Update(&context, data, sendfilesize);
-	  fprintf(stderr,"data string: %s \n", data);
-	//}
-	MD5_Final(digest, &context);
-
-	char md5string[32];
-	for(int i=0; i<16; i++){
-		sprintf(md5string, "%02x", digest[i]);
-		fprintf(stderr, "PUTC CHECKSUM: %s \n", md5string);
-	}
-
-
-	
-}
 
 
 /*

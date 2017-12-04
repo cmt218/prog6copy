@@ -260,13 +260,7 @@ void put_file(char* putmsg){
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 	
-	//remove file if it exists because it will be overwritten
-	if(file_exists(filename)){
-		remove(filename);
-	}
 	
-	//create the file to be put
-	FILE *newptr = fopen(filename, "ab+");
 
 	//parse out bytes size
 	begname = endname+1;
@@ -288,6 +282,15 @@ void put_file(char* putmsg){
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
 
+	//TODO: Have server reply error or OK
+	//remove file if it exists because it will be overwritten
+	if(file_exists(filename)){
+		remove(filename);
+	}
+	
+	//create the file to be put
+	FILE *newptr = fopen(filename, "ab+");
+
 	//write the data to the file
 	int writefd = fileno(newptr);
 	write(writefd, filedata, len);
@@ -298,8 +301,6 @@ void put_file(char* putmsg){
  *
  */
 void putc_file(char* putmsg){
-	//fprintf(stderr, "CALLING PUTC FILE \n");
-	//fprintf(stderr, "PUTC MESSAGE: %s \n", putmsg);
 
 	//parse out file name
 	char* endname = strstr(putmsg, "\n");
@@ -339,27 +340,44 @@ void putc_file(char* putmsg){
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
 
-	//TODO: fix checksum implementation
 	//see if the checksum matches
 	unsigned char digest[16];
 	char* data = filedata;
 	int read_bytes;
 	MD5_CTX context;
 	MD5_Init(&context);
-	//while((read_bytes = fread(data, 1, 1024, sendptr)) != 0) {
-	  MD5_Update(&context, data, len+2);
-	  fprintf(stderr,"data string: %s \n", data);
-	//}
+	MD5_Update(&context, data, len+2);
 	MD5_Final(digest, &context);
 
+	bool hashmatch = false;
 	char md5string[32];
 	for(int i=0; i<16; i++){
 		sprintf(md5string, "%02x", digest[i]);
-		fprintf(stderr, "PUTC CHECKSUM: %s \n", md5string);
+		if(strncmp(md5string, checksum+(2*i), 2) == 0){
+			hashmatch = true;
+		}
+		else{
+			hashmatch = false;
+			break;
+		}
+	}
+	
+	//TODO: have server return OKC on match otherwise return error
+	if(hashmatch){
+
+		//remove file if it exists because it will be overwritten
+		if(file_exists(filename)){
+			remove(filename);
+		}
+		
+		//create the file to be put
+		FILE *newptr = fopen(filename, "ab+");
+
+		//write the data to the file
+		int writefd = fileno(newptr);
+		write(writefd, filedata, len);
 	}
 
-
-	
 }
 
 /*
