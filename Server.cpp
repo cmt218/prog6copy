@@ -360,15 +360,17 @@ void put_file(char* putmsg){
  */
 void putc_file(char* putmsg, int lru_size, Node **mycache){
 
+	fprintf(stderr, "PERFORMING PUTC FILE WITH MESSAGE %s \n", putmsg);
 	//parse out file name
 	char* endname = strstr(putmsg, "\n");
-	char* begname = putmsg+4;
+	char* begname = putmsg+5;
 	int len = endname-begname;
 	char filename[len+2];
 	bzero(filename, len+2);
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 
+	fprintf(stderr, "FILENAME: %s \n", filename);
 	//parse out bytes size
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -380,6 +382,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	numbytesstring[len+1] = '\0';
 	sscanf(numbytesstring, "%d", &numbytes);
 	
+	fprintf(stderr, "BYTE SIZE %s \n", numbytesstring);
 	//parse out the checksum
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -389,6 +392,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	strncpy(checksum, begname, len);
 	checksum[len+1] = '\0';
 
+	fprintf(stderr, "CHECKSUM %s \n", checksum);
 	//isolate the file data
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -397,10 +401,14 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	bzero(filedata, len+2);
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
-	if(lru_size > 0){
+	
+	fprintf(stderr, "FILEDATA: %s \n", filedata);
+	
+	// if(lru_size > 0){
 
-		addNode(filedata, filename, lru_size, mycache);
-	}
+	// 	addNode(filedata, filename, lru_size, mycache);
+	// }
+	
 	//see if the checksum matches
 	unsigned char digest[16];
 	char* data = filedata;
@@ -556,10 +564,6 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 		MD5_Init(&context);
 	    MD5_Update(&context, data, sendfilesize-1);
 		MD5_Final(digest, &context);
-
-		//fprintf(stderr, "SIZE: %d\n", sendfilesize);
-		//fprintf(stderr, "DATA: %s\n", data);
-		fprintf(stderr,"\n end of string: %c \n", contentstr[sendfilesize-1]);
 
 		//<md5 hash>\n
 		char md5string[32];
