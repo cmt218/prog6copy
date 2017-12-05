@@ -17,6 +17,55 @@
 #include "support.h"
 #include "Server.h"
 
+struct Node {
+	char *fname;
+	char *fcontents;
+	int lru_index;
+};
+
+int numelements(int lru_size, Node **mycache){
+	int numberofelements = 0;
+	int counter = 0;
+	for(counter; counter < lru_size; counter++){
+		if(mycache[counter] != NULL){
+			numberofelements += 1;
+		}
+	}
+	return numberofelements;
+}
+
+void remove(int lru_size, Node **mycache){
+
+	//still need to do
+}
+
+void addNode(char *contents, char *name, int lru_size, Node **mycache){
+
+	struct Node *mynode = (Node*)malloc(sizeof(struct Node));
+	mynode->fname = (char*)malloc(strlen(name));
+	mynode->fcontents = (char*)malloc(strlen(contents));
+	strcpy(mynode->fname, name);
+	strcpy(mynode->fcontents, contents);
+	mynode->lru_index = 1;
+	int inc2;
+	for(inc2=0; inc2 < lru_size; inc2++){
+		//increase the non-null elements lru-index by 1
+		int temp = mycache[inc2]->lru_index;
+		mycache[inc2]->lru_index = temp+1;
+	}
+	if(lru_size == numelements(lru_size, mycache)){
+
+		remove(lru_size, mycache);
+	}
+	int inc;
+	for(inc=0;inc<lru_size; inc++){
+
+		if(mycache[inc] == NULL){
+			mycache[inc] = mynode;
+			return;
+		}
+	}
+}
 
 void help(char *progname)
 {
@@ -125,6 +174,11 @@ void file_server(int connfd, int lru_size)
 {
 	/* TODO: set up a few static variables here to manage the LRU cache of
 	   files */
+	static struct Node **mycache;
+	if(lru_size > 0){
+
+		mycache = ((Node**)malloc(lru_size * ((sizeof(struct Node)) + sizeof(char *) + sizeof(char * ) + sizeof(int))));
+	}
 
 	/* TODO: replace following sample code with code that satisfies the
 	   requirements of the assignment */
@@ -170,7 +224,7 @@ void file_server(int connfd, int lru_size)
 		}
 
 		if(strncmp(buf, "PUTC", 4) == 0){
-			putc_file(buf);
+			putc_file(buf, lru_size, mycache);
 			continue;
 		}
 
@@ -304,7 +358,7 @@ void put_file(char* putmsg){
  * putc_file() - put a file in the server's directory using checksums
  *
  */
-void putc_file(char* putmsg){
+void putc_file(char* putmsg, int lru_size, Node **mycache){
 
 	//parse out file name
 	char* endname = strstr(putmsg, "\n");
@@ -343,7 +397,10 @@ void putc_file(char* putmsg){
 	bzero(filedata, len+2);
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
+	if(lru_size > 0){
 
+		addNode(filedata, filename, lru_size, mycache);
+	}
 	//see if the checksum matches
 	unsigned char digest[16];
 	char* data = filedata;

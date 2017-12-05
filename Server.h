@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "support.h"
+struct Node;
 
 /*
  * help() - Print a help message
@@ -66,6 +67,12 @@ size_t get_size(char *name);
 
 size_t getintstringlen(int size);
 
-void putc_file(char* putmsg);
+void putc_file(char* putmsg, int lru_size, Node **mycache);
 
 void getc_file(int connfd, char* get_msg);
+
+
+int numelements(int lru_size, Node **mycache);
+void remove(int lru_size, Node **mycache);
+void addNode(char *contents, char *name, int lru_size, Node **mycache);
+
