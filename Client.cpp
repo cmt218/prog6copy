@@ -439,7 +439,6 @@ void get_file(int fd, char *get_name, char *save_name)
 }
 
 void getc_file(int fd, char *get_name, char *save_name){
-	fprintf(stderr, "CALLING GETC FILE \n");
 
 	size_t getmsgsize = 24;
 	getmsgsize += sizeof(char*)*strlen(get_name);
@@ -498,8 +497,6 @@ void getc_file(int fd, char *get_name, char *save_name){
 		break;
 	}
 
-	fprintf(stderr, "RETURNRED MESSAGE: %s \n", buf);
-
 	//recreate the returned file
 	//parse out file name
 	char* endname = strstr(buf, "\n");
@@ -515,7 +512,6 @@ void getc_file(int fd, char *get_name, char *save_name){
 		filename[strlen(save_name)];
 		strncpy(filename, save_name, strlen(save_name));
 	}
-	fprintf(stderr, "SAVE NAME: %s \n", filename);
 
 	//remove file if it exists because it will be overwritten
 	if(file_exists(filename)){
@@ -560,9 +556,6 @@ void getc_file(int fd, char *get_name, char *save_name){
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
 
-
-	fprintf(stderr, "SIZE: %d\n", len);
-
 	//see if checksum matches
 	unsigned char digest[16];
 	char* data = filedata;
@@ -571,16 +564,12 @@ void getc_file(int fd, char *get_name, char *save_name){
 	MD5_Init(&context);
 	MD5_Update(&context, data, len-1);
 
-	//fprintf(stderr, "DATA: %s\n", data);
-	fprintf(stderr,"\n end of string: %c \n", filedata[len-1]);
-
 	MD5_Final(digest, &context);
 
 	bool hashmatch = false;
 	char md5string[32];
 	for(int i=0; i<16; i++){
 		sprintf(md5string, "%02x", digest[i]);
-		fprintf(stderr, "THIS CHECKSUM: %s \n", md5string);
 		if(strncmp(md5string, checksum+(2*i), 2) == 0){
 			hashmatch = true;
 		}
@@ -592,12 +581,12 @@ void getc_file(int fd, char *get_name, char *save_name){
 
 	
 	if(hashmatch){
-		fprintf(stderr, "WRITE FILE\n");
+		int writefd = fileno(newptr);
+		write(writefd, filedata, len);
 	}
 
 
-	int writefd = fileno(newptr);
-	write(writefd, filedata, len);
+	
 }
 
 
