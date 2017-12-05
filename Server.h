@@ -60,10 +60,12 @@ void put_file(char* putmsg);
  * get_file() - return a file to the client
  *
  */
-void get_file(int connfd, char* getmsg);
+void get_file(int connfd, char* get_msg);
 
 size_t get_size(char *name);
 
 size_t getintstringlen(int size);
 
 void putc_file(char* putmsg);
+
+void getc_file(int connfd, char* get_msg);

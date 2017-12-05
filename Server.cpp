@@ -174,9 +174,13 @@ void file_server(int connfd, int lru_size)
 			continue;
 		}
 
-		//fprintf(stderr, "BUF CONTENTS: %s \n", buf);
+		else if(strncmp(buf, "GET", 3) == 0){
+			getc_file(connfd, buf);
+			continue;
+		}
+
 		//case where server receives put
-		if(strncmp(buf, "PUT", 3) == 0){
+		else if(strncmp(buf, "PUT", 3) == 0){
 			put_file(buf);
 			continue;
 		}
@@ -347,6 +351,9 @@ void putc_file(char* putmsg){
 	MD5_CTX context;
 	MD5_Init(&context);
 	MD5_Update(&context, data, len+2);
+
+
+
 	MD5_Final(digest, &context);
 
 	bool hashmatch = false;
@@ -429,6 +436,90 @@ void putc_file(char* putmsg){
 
  		
  	}
+ 	else{
+ 		printf("ERROR TO FIX ANOTHER TIME");
+ 	}
+ }
+
+ void getc_file(int connfd, char* get_msg){
+ 	// fprintf(stderr, "CALLING GETC FILE \n");
+ 	// fprintf(stderr, "WITH MESSAGE: %s \n", get_msg);
+
+ 	char* endname = strstr(get_msg, "\n");
+ 	char* begname = get_msg+5;
+ 	int len = endname - begname;
+ 	char filename[len+2];
+ 	bzero(filename, len+2);
+ 	strncpy(filename, begname, len);
+ 	filename[len+1] = '\0';
+ 	FILE *newptr;
+
+
+ 	if(newptr = fopen(filename, "r")){
+		//initially 10 to account for 'PUT' and new line
+		//characters being sent
+		size_t sendmsgsize = 24;
+		//add size of file name
+		sendmsgsize += sizeof(char*)*strlen(filename);
+		//add size of byte number
+		size_t sendfilesize = get_size(filename);
+		sendmsgsize += sendfilesize/10;
+		//add size of file
+		sendmsgsize += sendfilesize;
+
+
+		//begin building the client's PUT message
+		char sendmsg[sendmsgsize];
+		bzero(sendmsg, sendmsgsize);
+
+		//OK <filename>\n
+		strcat(sendmsg, "OKC ");
+		strcat(sendmsg, filename);
+		strcat(sendmsg, "\n");
+
+		//<# bytes>\n
+		char sizestr[sendmsgsize/10];
+		sprintf(sizestr,"%d",sendfilesize);
+		strcat(sendmsg, sizestr);
+		strcat(sendmsg, "\n");
+		
+		//get file contents
+		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+		for(int i=0;i<sendfilesize;i++){
+			fread(contentstr+i, 1, 1, newptr);
+		}
+		
+		rewind(newptr);
+
+		//get checksum
+		unsigned char digest[16];
+		char* data = contentstr;
+		int read_bytes;
+		MD5_CTX context;
+		MD5_Init(&context);
+	    MD5_Update(&context, data, sendfilesize-1);
+		MD5_Final(digest, &context);
+
+		//fprintf(stderr, "SIZE: %d\n", sendfilesize);
+		//fprintf(stderr, "DATA: %s\n", data);
+		fprintf(stderr,"\n end of string: %c \n", contentstr[sendfilesize-1]);
+
+		//<md5 hash>\n
+		char md5string[32];
+		for(int i=0; i<16; i++){
+			sprintf(md5string, "%02x", digest[i]);
+			strcat(sendmsg, md5string);
+		}
+		strcat(sendmsg, "\n");
+
+		//<file contents>\n
+		strcat(sendmsg, contentstr);
+		strcat(sendmsg, "\n");
+
+		//send the PUT message
+		write(connfd, sendmsg, strlen(sendmsg));
+ 	}
+ 	//TODO: correct implementation of this
  	else{
  		printf("ERROR TO FIX ANOTHER TIME");
  	}

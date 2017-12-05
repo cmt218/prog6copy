@@ -192,9 +192,9 @@ size_t getintstringlen(int size){
 void putc_file(int fd, char *put_name){
   //echo_client(fd);
 
-	fprintf(stderr, "putting file with checksum \n");
+	//fprintf(stderr, "putting file with checksum \n");
 	if(file_exists(put_name)){
-	  FILE* sendptr = fopen(put_name, "rb");
+	    FILE* sendptr = fopen(put_name, "rb");
 
 
 		//initially 10 to account for 'PUT' and new line
@@ -270,7 +270,7 @@ void putc_file(int fd, char *put_name){
  */
 void put_file(int fd, char *put_name)
 {
-	/* TODO: implement a proper solution, instead of calling the echo() client */	
+	
 	
 	if(file_exists(put_name)){
 		//initially 10 to account for 'PUT' and new line
@@ -326,7 +326,6 @@ void put_file(int fd, char *put_name)
  */
 void get_file(int fd, char *get_name, char *save_name)
 {
-	/* TODO: implement a proper solution, instead of calling the echo() client */
 	size_t getmsgsize = 6;
 	getmsgsize += sizeof(char*)*strlen(get_name);
 	char getmsg[getmsgsize];
@@ -439,6 +438,168 @@ void get_file(int fd, char *get_name, char *save_name)
 
 }
 
+void getc_file(int fd, char *get_name, char *save_name){
+	fprintf(stderr, "CALLING GETC FILE \n");
+
+	size_t getmsgsize = 24;
+	getmsgsize += sizeof(char*)*strlen(get_name);
+	char getmsg[getmsgsize];
+	bzero(getmsg,getmsgsize);
+	strcat(getmsg, "GETC ");
+	strcat(getmsg, get_name);
+	strcat(getmsg, "\n");
+	write(fd, getmsg, strlen(getmsg));
+
+	//receive response from server
+	/* set up a buffer, clear it, and read keyboard input */
+	const int MAXLINE = 8192;
+	char buf[MAXLINE];
+	bzero(buf, MAXLINE);
+
+	while(1)
+	{
+
+		/* send keystrokes to the server, handling short counts */
+		size_t n = strlen(buf);
+		size_t nremain = n;
+		ssize_t nsofar;
+		char *bufp = buf;
+
+		/* read input back from socket (again, handle short counts)*/
+		bzero(buf, MAXLINE);
+		bufp = buf;
+		nremain = MAXLINE;
+		while(1)
+		{
+			if((nsofar = read(fd, bufp, nremain)) < 0)
+			{
+				if(errno != EINTR)
+				{
+					die("read error: ", strerror(errno));
+				}
+				continue;
+			}
+			/* in echo, server should never EOF */
+			if(nsofar == 0)
+			{
+				die("Server error: ", "received EOF");
+			}
+			bufp += nsofar;
+			nremain -= nsofar;
+			if(*(bufp-1) == '\n')
+			{
+				*bufp = 0;
+				break;
+			}
+		}
+
+		/* output the result */
+		//printf("%s", buf);
+		break;
+	}
+
+	fprintf(stderr, "RETURNRED MESSAGE: %s \n", buf);
+
+	//recreate the returned file
+	//parse out file name
+	char* endname = strstr(buf, "\n");
+	char* begname = buf+4;
+	int len = endname-begname;
+	char filename[len+2];
+	bzero(filename, len+2);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+
+	if(save_name){
+		//bzero(filename, len+2);
+		filename[strlen(save_name)];
+		strncpy(filename, save_name, strlen(save_name));
+	}
+	fprintf(stderr, "SAVE NAME: %s \n", filename);
+
+	//remove file if it exists because it will be overwritten
+	if(file_exists(filename)){
+		remove(filename);
+	}
+	FILE *newptr = fopen(filename, "ab+");
+
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+2];
+	bzero(numbytesstring, len+2);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+
+	//fprintf(stderr, "NUM BYTES %s \n", numbytesstring);
+
+	//expand the file to our needs
+	fseek(newptr, numbytes, SEEK_SET);
+	//fseek(newptr, 0, SEEK_SET);
+
+	//parse out the checksum
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char checksum[len+1];
+	bzero(checksum, len+1);
+	strncpy(checksum, begname, len);
+	checksum[len+1] = '\0';
+
+	//fprintf(stderr, "RECEIVED CHECKSUM %s \n", checksum);
+
+	//isolate the file data
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char filedata[len+2];
+	bzero(filedata, len+2);
+	strncpy(filedata, begname, len);
+	filedata[len] = '\0';
+
+
+	fprintf(stderr, "SIZE: %d\n", len);
+
+	//see if checksum matches
+	unsigned char digest[16];
+	char* data = filedata;
+	int read_bytes;
+	MD5_CTX context;
+	MD5_Init(&context);
+	MD5_Update(&context, data, len-1);
+
+	//fprintf(stderr, "DATA: %s\n", data);
+	fprintf(stderr,"\n end of string: %c \n", filedata[len-1]);
+
+	MD5_Final(digest, &context);
+
+	bool hashmatch = false;
+	char md5string[32];
+	for(int i=0; i<16; i++){
+		sprintf(md5string, "%02x", digest[i]);
+		fprintf(stderr, "THIS CHECKSUM: %s \n", md5string);
+		if(strncmp(md5string, checksum+(2*i), 2) == 0){
+			hashmatch = true;
+		}
+		else{
+			hashmatch = false;
+			break;
+		}
+	}
+
+	
+	if(hashmatch){
+		fprintf(stderr, "WRITE FILE\n");
+	}
+
+
+	int writefd = fileno(newptr);
+	write(writefd, filedata, len);
+}
+
 
 
 /*
@@ -481,6 +642,9 @@ int main(int argc, char **argv)
 	  putc_file(fd, put_name);
 	} else if(put_name && checksum == 0){
 	  put_file (fd, put_name);
+	}
+	else if(get_name && checksum ==1){
+		getc_file(fd, get_name, save_name);
 	}
 	else
 	{
