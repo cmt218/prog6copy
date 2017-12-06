@@ -360,7 +360,7 @@ void put_file(char* putmsg){
  */
 void putc_file(char* putmsg, int lru_size, Node **mycache){
 
-	fprintf(stderr, "PERFORMING PUTC FILE WITH MESSAGE %s \n", putmsg);
+	//fprintf(stderr, "PERFORMING PUTC FILE WITH MESSAGE %s \n", putmsg);
 	//parse out file name
 	char* endname = strstr(putmsg, "\n");
 	char* begname = putmsg+5;
@@ -370,7 +370,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 
-	fprintf(stderr, "FILENAME: %s \n", filename);
+	//fprintf(stderr, "FILENAME: %s \n", filename);
 	//parse out bytes size
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -382,7 +382,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	numbytesstring[len+1] = '\0';
 	sscanf(numbytesstring, "%d", &numbytes);
 	
-	fprintf(stderr, "BYTE SIZE %s \n", numbytesstring);
+	//fprintf(stderr, "BYTE SIZE %s \n", numbytesstring);
 	//parse out the checksum
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -392,7 +392,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	strncpy(checksum, begname, len);
 	checksum[len+1] = '\0';
 
-	fprintf(stderr, "CHECKSUM %s \n", checksum);
+	//fprintf(stderr, "CHECKSUM %s \n", checksum);
 	//isolate the file data
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -402,12 +402,12 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	strncpy(filedata, begname, len);
 	filedata[len] = '\0';
 	
-	fprintf(stderr, "FILEDATA: %s \n", filedata);
+	//fprintf(stderr, "FILEDATA: %s \n", filedata);
 	
-	// if(lru_size > 0){
+	if(lru_size > 0){
 
-	// 	addNode(filedata, filename, lru_size, mycache);
-	// }
+		addNode(filedata, filename, lru_size, mycache);
+	}
 	
 	//see if the checksum matches
 	unsigned char digest[16];
