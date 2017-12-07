@@ -228,7 +228,7 @@ void file_server(int connfd, int lru_size)
 			continue;
 		}
 
-		else if(strncmp(buf, "GET", 3) == 0){
+		else if(strncmp(buf, "GETC", 4) == 0){
 			getc_file(connfd, buf);
 			continue;
 		}
@@ -457,7 +457,7 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
  *
  */
  void get_file(int connfd, char* get_msg){
- 	//fprintf(stderr, "GET MESSAGE: %s", getmsg);
+ 	fprintf(stderr, "GET MESSAGE: %s", get_msg);
  	//write(connfd, get_msg, strlen(get_msg));
 
  	char* endname = strstr(get_msg, "\n");
