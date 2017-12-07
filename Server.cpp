@@ -305,7 +305,7 @@ size_t get_size(char *name){
 
 /*
  * put_file() - put a file in the server's directory
- *
+ * updated to work with files containing new lines
  */
 void put_file(char* putmsg){
 	
@@ -318,8 +318,6 @@ void put_file(char* putmsg){
 	strncpy(filename, begname, len);
 	filename[len+1] = '\0';
 	
-	
-
 	//parse out bytes size
 	begname = endname+1;
 	endname = strstr(begname, "\n");
@@ -333,7 +331,8 @@ void put_file(char* putmsg){
 
 	//isolate the file data
 	begname = endname+1;
-	endname = strstr(begname, "\n");
+	//endname = strstr(begname, "\n");
+	endname = begname+numbytes;
 	len = endname-begname;
 	char filedata[len+2];
 	bzero(filedata, len+2);
@@ -356,7 +355,7 @@ void put_file(char* putmsg){
 
 /*
  * putc_file() - put a file in the server's directory using checksums
- *
+ * updated to work with files containing new lines
  */
 void putc_file(char* putmsg, int lru_size, Node **mycache){
 
@@ -395,7 +394,8 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	//fprintf(stderr, "CHECKSUM %s \n", checksum);
 	//isolate the file data
 	begname = endname+1;
-	endname = strstr(begname, "\n");
+	//endname = strstr(begname, "\n");
+	endname = begname+numbytes;
 	len = endname-begname;
 	char filedata[len+2];
 	bzero(filedata, len+2);
@@ -404,10 +404,10 @@ void putc_file(char* putmsg, int lru_size, Node **mycache){
 	
 	//fprintf(stderr, "FILEDATA: %s \n", filedata);
 	
-	if(lru_size > 0){
+	// if(lru_size > 0){
 
-		addNode(filedata, filename, lru_size, mycache);
-	}
+	// 	addNode(filedata, filename, lru_size, mycache);
+	// }
 	
 	//see if the checksum matches
 	unsigned char digest[16];

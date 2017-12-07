@@ -40,6 +40,7 @@ void die(const char *msg1, const char *msg2)
 	exit(0);
 }
 
+
 /*
  * connect_to_server() - open a connection to the server specified by the
  *                       parameters
@@ -310,6 +311,32 @@ void put_file(int fd, char *put_name)
 		strcat(sendmsg, contentstr);
 		strcat(sendmsg, "\n");
 
+
+		unsigned char* encrypted;
+		unsigned char* unencrypted;
+		//example encryption
+		//unsigned char* from = (unsigned char*)contentstr;
+		unsigned char from[] = "test data";
+		fprintf(stderr, "UNENCRYPTED FILE CONTENTS: %s\n", from);
+		FILE *pubptr = fopen("public.pem", "r");
+		RSA* temp = RSA_new();
+		RSA* pub = PEM_read_RSA_PUBKEY(pubptr, &temp, NULL, NULL);
+		int esize = RSA_size(temp);
+		int flen = 10;
+		encrypted = (unsigned char*)malloc(esize);
+		int er = RSA_public_encrypt(flen, from, encrypted, temp, RSA_PKCS1_OAEP_PADDING);
+		fprintf(stderr, "ESIZE: %d ENC RES: %d\n",esize,er);
+		fprintf(stderr, "ENCRYPTED FILE CONTENTS: %s\n", encrypted);
+
+		//example decryption
+		unsigned char* result = (unsigned char*)malloc(esize);
+		FILE *privptr = fopen("private.pem", "r");
+		RSA* utemp = RSA_new();
+		RSA* priv = PEM_read_RSAPrivateKey(privptr, &utemp, NULL, NULL);
+		int dr = RSA_private_decrypt(esize, encrypted, result, utemp, RSA_PKCS1_OAEP_PADDING);
+		fprintf(stderr, "DECRYPT RESULT %d \n", dr);
+		fprintf(stderr, "DECRYPTED FILE CONTENTS: %s\n", result);
+
 		//send the PUT message
 		write(fd, sendmsg, strlen(sendmsg));
 		
@@ -426,7 +453,8 @@ void get_file(int fd, char *get_name, char *save_name)
 
 	//isolate the file data
 	begname = endname+1;
-	endname = strstr(begname, "\n");
+	//endname = strstr(begname, "\n");
+	endname = begname+numbytes;
 	len = endname-begname;
 	char filedata[len+2];
 	bzero(filedata, len+2);
@@ -549,7 +577,8 @@ void getc_file(int fd, char *get_name, char *save_name){
 
 	//isolate the file data
 	begname = endname+1;
-	endname = strstr(begname, "\n");
+	//endname = strstr(begname, "\n");
+	endname = begname+numbytes;
 	len = endname-begname;
 	char filedata[len+2];
 	bzero(filedata, len+2);
@@ -579,14 +608,10 @@ void getc_file(int fd, char *get_name, char *save_name){
 		}
 	}
 
-	
 	if(hashmatch){
 		int writefd = fileno(newptr);
 		write(writefd, filedata, len);
 	}
-
-
-	
 }
 
 
@@ -621,6 +646,7 @@ int main(int argc, char **argv)
 		case 'a': checksum = 1; break;
 		}
 	}
+
 
 	/* open a connection to the server */
 	int fd = connect_to_server(server, port);
