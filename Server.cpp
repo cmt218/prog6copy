@@ -25,6 +25,10 @@ struct LockGuy {
 
 };
 
+struct Cache {
+
+};
+
 struct Node {
 	char *fname;
 	char *fcontents;
@@ -194,11 +198,7 @@ void file_server(int connfd, int lru_size, struct LockGuy* lg)
 		mycache = ((Node**)malloc(lru_size * ((sizeof(struct Node)) + sizeof(char *) + sizeof(char * ) + sizeof(int))));
 	}
 
-	/* TODO: replace following sample code with code that satisfies the
-	   requirements of the assignment */
 
-	/* sample code: continually read lines from the client, and send them
-	   back to the client immediately */
 	while(1)
 	{
 		const int MAXLINE = 8192;
@@ -323,17 +323,15 @@ void put_file(char* putmsg, struct LockGuy* lg){
 
 	//write file
 	int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
+	if(lg){
+		flock(writefd, LOCK_EX);
+	}
 	write(writefd, filedata, len);
 	close(writefd);
+	if(lg){
+		flock(writefd, LOCK_UN);
+	}
 	printf("OK\n");
-
-	//TODO: Have server reply error or OK
-	//remove file if it exists because it will be overwritten
-	// int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
-	// flock(writefd, LOCK_EX);
-	// write(writefd, filedata, len);
-	// close(writefd);
-	// flock(writefd, LOCK_UN);
 }
 
 //receives:
@@ -405,9 +403,16 @@ void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
 	
 	//write file 
 	int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
+	if(lg){
+		fprintf(stderr, "ACQUIRING LOCK PUT \n");
+		flock(writefd, LOCK_EX);
+	}
 	write(writefd, filedata, len);
 	close(writefd);
-
+	if(lg){
+		fprintf(stderr, "FREEING LOCK PUT \n");
+		flock(writefd, LOCK_UN);
+	}
 	printf("OK\n");
 }
 
@@ -437,6 +442,10 @@ void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
  	//<file contents>\n
  	FILE *newptr;
  	newptr = fopen(filename, "r");
+ 	int fd = fileno(newptr);
+ 	if(lg){
+		flock(fd, LOCK_EX);
+	}
 
  	//calculate message size
 	size_t sendmsgsize = 3;
@@ -466,6 +475,9 @@ void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
 	strcat(sendmsg, contentstr);
 	strcat(sendmsg, "\n");
 	write(connfd, sendmsg, strlen(sendmsg));
+	if(lg){
+		flock(fd, LOCK_UN);
+	}
  }
 
 //receives:
@@ -494,6 +506,11 @@ void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
  	//<file contents>\n
  	FILE *newptr;
  	newptr = fopen(filename, "r");
+ 	int fd = fileno(newptr);
+ 	if(lg){
+ 		fprintf(stderr, "ACQUIRING LOCK GET \n");
+		flock(fd, LOCK_EX);
+	}
 
 	//calculate message size
 	size_t sendmsgsize = 4;
@@ -542,9 +559,11 @@ void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
 	//<file contents>\n
 	strcat(sendmsg, contentstr);
 	strcat(sendmsg, "\n");
-	
-	//send the message
 	write(connfd, sendmsg, strlen(sendmsg));
+	if(lg){
+		fprintf(stderr, "FREEING LOCK GET \n");
+		flock(fd, LOCK_UN);
+	}
  }
 
  int digitcount(int num){
@@ -602,7 +621,7 @@ int main(int argc, char **argv)
 		switch(opt)
 		{
 		case 'h': help(argv[0]); break;
-		case 'l': lru_size = atoi(argv[0]); break;
+		case 'l': lru_size = atoi(optarg); break;
 		case 'm': multithread = true;	break;
 		case 'p': port = atoi(optarg); break;
 		}
