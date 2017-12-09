@@ -47,7 +47,7 @@ void handle_requests(int listenfd, void (*service_function)(int, int), int param
  * file_server() - Read a request from a socket, satisfy the request, and
  *                 then close the connection.
  */
-void file_server(int connfd, int lru_size);
+void file_server(int connfd, int lru_size, struct LockGuy * lg);
 
 bool file_exists(char *name);
 
@@ -55,21 +55,22 @@ bool file_exists(char *name);
  * put_file() - put a file in the server's directory
  *
  */
-void put_file(char* putmsg);
+void put_file(char* putmsg, struct LockGuy* lg);
 
 /*
  * get_file() - return a file to the client
  *
  */
-void get_file(int connfd, char* get_msg);
+void get_file(int connfd, char* get_msg, struct LockGuy* lg);
 
 size_t get_size(char *name);
 
 size_t getintstringlen(int size);
 
-void putc_file(char* putmsg, int lru_size, Node **mycache);
+void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg);
 
-void getc_file(int connfd, char* get_msg);
+void getc_file(int connfd, char* get_msg, struct LockGuy* lg);
+int digitcount(int num);
 
 
 int numelements(int lru_size, Node **mycache);

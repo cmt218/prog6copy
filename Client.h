@@ -26,13 +26,13 @@ void echo_client(int fd);
 /*
  * put_file() - send a file to the server accessible via the given socket fd
  */
-void put_file(int fd, char *put_name);
+void put_file(int fd, char *put_name, int enc);
 
 /*
  * get_file() - get a file from the server accessible via the given socket
  *              fd, and save it according to the save_name
  */
-void get_file(int fd, char *get_name, char *save_name);
+void get_file(int fd, char *get_name, char *save_name, int enc);
 
 /*cmt218
  *file_exists() - check if a file with name exists in current directory
@@ -48,6 +48,10 @@ size_t get_size(char *name);
 
 size_t getintstringlen(int size);
 
-void putc_file(int fd, char *put_name);
+void putc_file(int fd, char *put_name, int enc);
 
-void getc_file(int fd, char *get_name, char *save_name);
+void getc_file(int fd, char *get_name, char *save_name, int enc);
+
+void server_response(int fd, char* buf);
+
+int digitcount(int num);

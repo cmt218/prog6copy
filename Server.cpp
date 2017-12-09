@@ -1,3 +1,5 @@
+#include <thread>
+#include <mutex>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -13,9 +15,15 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 #include <unistd.h>
 #include "support.h"
 #include "Server.h"
+
+
+struct LockGuy {
+
+};
 
 struct Node {
 	char *fname;
@@ -130,7 +138,7 @@ int open_server_socket(int port)
  *                     to service_function.  Note that this is not a
  *                     multi-threaded server.
  */
-void handle_requests(int listenfd, void (*service_function)(int, int), int param, bool multithread)
+void handle_requests(int listenfd, void (*service_function)(int, int, struct LockGuy*), int param, bool multithread)
 {
 	while(1)
 	{
@@ -155,8 +163,14 @@ void handle_requests(int listenfd, void (*service_function)(int, int), int param
 		char *haddrp = inet_ntoa(clientaddr.sin_addr);
 		printf("server connected to %s (%s)\n", hp->h_name, haddrp);
 
-		/* serve requests */
-		service_function(connfd, param);
+
+		if(multithread){
+			LockGuy * lg = new LockGuy();
+			/* serve requests */
+			service_function(connfd, param, lg);
+		}else{
+			service_function(connfd, param, NULL);
+		}
 
 		/* clean up, await new connection */
 		if(close(connfd) < 0)
@@ -170,7 +184,7 @@ void handle_requests(int listenfd, void (*service_function)(int, int), int param
  * file_server() - Read a request from a socket, satisfy the request, and
  *                 then close the connection.
  */
-void file_server(int connfd, int lru_size)
+void file_server(int connfd, int lru_size, struct LockGuy* lg)
 {
 	/* TODO: set up a few static variables here to manage the LRU cache of
 	   files */
@@ -224,24 +238,24 @@ void file_server(int connfd, int lru_size)
 		}
 
 		if(strncmp(buf, "PUTC", 4) == 0){
-			putc_file(buf, lru_size, mycache);
+			putc_file(buf, lru_size, mycache, lg);
 			continue;
 		}
 
 		else if(strncmp(buf, "GETC", 4) == 0){
-			getc_file(connfd, buf);
+			getc_file(connfd, buf, lg);
 			continue;
 		}
 
 		//case where server receives put
 		else if(strncmp(buf, "PUT", 3) == 0){
-			put_file(buf);
+			put_file(buf, lg);
 			continue;
 		}
 		
 		//case where server receives get
 		else if(strncmp(buf, "GET", 3) == 0){
-			get_file(connfd, buf);
+			get_file(connfd, buf, lg);
 			continue;
 		}
 
@@ -269,14 +283,279 @@ void file_server(int connfd, int lru_size)
 	}
 }
 
-size_t getintstringlen(int size){
-	size_t l = 1;
-	int cpy = size;
-	while(cpy > 9){
-		l++;
-		cpy /= 10;
-	}
+
+
+//receives:
+//PUT <filename>\n
+//<# bytes>\n
+//<file contents>\n
+void put_file(char* putmsg, struct LockGuy* lg){
+	
+	//parse out file name
+	char* endname = strstr(putmsg, "\n");
+	char* begname = putmsg+4;
+	int len = endname-begname;
+	char filename[len+1];
+	bzero(filename, len+1);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+	
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+1];
+	bzero(numbytesstring, len+1);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+
+	//isolate the file data
+	begname = endname+1;
+	//endname = strstr(begname, "\n");
+	endname = begname+numbytes;
+	len = endname-begname;
+	char filedata[len+1];
+	bzero(filedata, len+1);
+	strncpy(filedata, begname, len);
+	filedata[len] = '\0';
+
+	//write file
+	int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
+	write(writefd, filedata, len);
+	close(writefd);
+	printf("OK\n");
+
+	//TODO: Have server reply error or OK
+	//remove file if it exists because it will be overwritten
+	// int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
+	// flock(writefd, LOCK_EX);
+	// write(writefd, filedata, len);
+	// close(writefd);
+	// flock(writefd, LOCK_UN);
 }
+
+//receives:
+//PUTC <filename>\n
+//<checksum>\n
+//<# bytes>\n
+//<file contents>\n
+void putc_file(char* putmsg, int lru_size, Node **mycache, struct LockGuy* lg){
+
+	//parse out file name
+	char* endname = strstr(putmsg, "\n");
+	char* begname = putmsg+5;
+	int len = endname-begname;
+	char filename[len+1];
+	bzero(filename, len+1);
+	strncpy(filename, begname, len);
+	filename[len+1] = '\0';
+
+	//parse out bytes size
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	int numbytes;
+	char numbytesstring[len+1];
+	bzero(numbytesstring, len+1);
+    strncpy(numbytesstring, begname, len);
+	numbytesstring[len+1] = '\0';
+	sscanf(numbytesstring, "%d", &numbytes);
+
+	//parse out the checksum
+	begname = endname+1;
+	endname = strstr(begname, "\n");
+	len = endname-begname;
+	char checksum[len+1];
+	bzero(checksum, len+1);
+	strncpy(checksum, begname, len);
+	checksum[len+1] = '\0';
+
+	//isolate the file data
+	begname = endname+1;
+	endname = begname+numbytes;
+	len = endname-begname;
+	char filedata[len+1];
+	bzero(filedata, len+1);
+	strncpy(filedata, begname, len);
+	filedata[len] = '\0';
+		
+	//see if the checksum matches
+	unsigned char digest[16];
+	char* data = filedata;
+	int read_bytes;
+	MD5_CTX context;
+	MD5_Init(&context);
+	MD5_Update(&context, data, len-1);
+
+	MD5_Final(digest, &context);
+
+	char md5string[32];
+	for(int i=0; i<16; i++){
+		sprintf(md5string, "%02x", digest[i]);
+		if(strncmp(md5string, checksum+(2*i), 2) == 0){
+			continue;
+		}
+		else{
+			printf("non matching checksums\n");
+			return;
+		}
+	}
+	
+	//write file 
+	int writefd = open(filename, O_RDWR | O_TRUNC | O_CREAT, 0777);
+	write(writefd, filedata, len);
+	close(writefd);
+
+	printf("OK\n");
+}
+
+
+//receives:
+//GET <filename>\n
+ void get_file(int connfd, char* get_msg, struct LockGuy* lg){
+
+ 	//parse message and error check
+ 	char* endname = strstr(get_msg, "\n");
+ 	char* begname = get_msg+4;
+ 	int len = endname - begname;
+ 	char filename[len+1];
+ 	bzero(filename, len+1);
+ 	strncpy(filename, begname, len);
+ 	filename[len+1] = '\0';
+
+ 	//<error>\n
+ 	if(!file_exists(filename)){
+ 		write(connfd, "file not found\n", 15);
+ 		return;
+ 	}
+
+ 	//sends:
+ 	//OK <filename>\n
+ 	//<# bytes>\n
+ 	//<file contents>\n
+ 	FILE *newptr;
+ 	newptr = fopen(filename, "r");
+
+ 	//calculate message size
+	size_t sendmsgsize = 3;
+	sendmsgsize += sizeof(char*)*strlen(filename);
+	size_t sendfilesize = get_size(filename);
+	sendmsgsize += digitcount(sendfilesize);
+	sendmsgsize += sendfilesize;
+	char sendmsg[sendmsgsize];
+	bzero(sendmsg, sendmsgsize);
+
+	//OK <filename>\n
+	strcat(sendmsg, "OK ");
+	strcat(sendmsg, filename);
+	strcat(sendmsg, "\n");
+
+	//<#bytes>\n
+	char sizestr[digitcount(sendfilesize)];
+	sprintf(sizestr, "%d", sendfilesize);
+	strcat(sendmsg, sizestr);
+	strcat(sendmsg, "\n");
+
+	//<file contents>\n
+	char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+	for(int i=0;i<sendfilesize;i++){
+		fread(contentstr+i, 1, 1, newptr);
+	}
+	strcat(sendmsg, contentstr);
+	strcat(sendmsg, "\n");
+	write(connfd, sendmsg, strlen(sendmsg));
+ }
+
+//receives:
+//GETC <filename>\n
+ void getc_file(int connfd, char* get_msg, struct LockGuy* lg){
+ 	
+ 	//parse message and error check
+ 	char* endname = strstr(get_msg, "\n");
+ 	char* begname = get_msg+5;
+ 	int len = endname - begname;
+ 	char filename[len+1];
+ 	bzero(filename, len+1);
+ 	strncpy(filename, begname, len);
+ 	filename[len+1] = '\0';
+ 	
+ 	//<error>\n
+ 	if(!file_exists(filename)){
+ 		write(connfd, "file not found\n", 15);
+ 		return;
+ 	}
+
+ 	//sends:
+ 	//OKC <filename>\n
+ 	//<checksum>\n
+ 	//<# bytes>\n
+ 	//<file contents>\n
+ 	FILE *newptr;
+ 	newptr = fopen(filename, "r");
+
+	//calculate message size
+	size_t sendmsgsize = 4;
+	sendmsgsize += sizeof(char*)*strlen(filename);
+	size_t sendfilesize = get_size(filename);
+	sendmsgsize += digitcount(sendfilesize);
+	sendmsgsize += sendfilesize;
+	char sendmsg[sendmsgsize];
+	bzero(sendmsg, sendmsgsize);
+
+	//OKC <filename>\n
+	strcat(sendmsg, "OKC ");
+	strcat(sendmsg, filename);
+	strcat(sendmsg, "\n");
+
+	//<# bytes>\n
+	char sizestr[digitcount(sendfilesize)];
+	sprintf(sizestr,"%d",sendfilesize);
+	strcat(sendmsg, sizestr);
+	strcat(sendmsg, "\n");
+	
+	//get file contents
+	char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
+	for(int i=0;i<sendfilesize;i++){
+		fread(contentstr+i, 1, 1, newptr);
+	}
+	rewind(newptr);
+
+	//get checksum
+	unsigned char digest[16];
+	char* data = contentstr;
+	int read_bytes;
+	MD5_CTX context;
+	MD5_Init(&context);
+    MD5_Update(&context, data, sendfilesize-1);
+	MD5_Final(digest, &context);
+
+	//<checksum\n
+	char md5string[32];
+	for(int i=0; i<16; i++){
+		sprintf(md5string, "%02x", digest[i]);
+		strcat(sendmsg, md5string);
+	}
+	strcat(sendmsg, "\n");
+
+	//<file contents>\n
+	strcat(sendmsg, contentstr);
+	strcat(sendmsg, "\n");
+	
+	//send the message
+	write(connfd, sendmsg, strlen(sendmsg));
+ }
+
+ int digitcount(int num){
+ 	int cpy = num;
+ 	int ct = 0;
+ 	while(cpy != 0){
+ 		cpy/=10;
+ 		ct++;
+ 	}
+ 	return ct;
+ }
 
 /*cmt218
  *file_exists() - check if a file exists in the current directory
@@ -302,289 +581,6 @@ size_t get_size(char *name){
 	fclose(getsizeof);
 	return size;
 }
-
-/*
- * put_file() - put a file in the server's directory
- * updated to work with files containing new lines
- */
-void put_file(char* putmsg){
-	
-	//parse out file name
-	char* endname = strstr(putmsg, "\n");
-	char* begname = putmsg+4;
-	int len = endname-begname;
-	char filename[len+2];
-	bzero(filename, len+2);
-	strncpy(filename, begname, len);
-	filename[len+1] = '\0';
-	
-	//parse out bytes size
-	begname = endname+1;
-	endname = strstr(begname, "\n");
-	len = endname-begname;
-	int numbytes;
-	char numbytesstring[len+2];
-	bzero(numbytesstring, len+2);
-    strncpy(numbytesstring, begname, len);
-	numbytesstring[len+1] = '\0';
-	sscanf(numbytesstring, "%d", &numbytes);
-
-	//isolate the file data
-	begname = endname+1;
-	//endname = strstr(begname, "\n");
-	endname = begname+numbytes;
-	len = endname-begname;
-	char filedata[len+2];
-	bzero(filedata, len+2);
-	strncpy(filedata, begname, len);
-	filedata[len] = '\0';
-
-	//TODO: Have server reply error or OK
-	//remove file if it exists because it will be overwritten
-	if(file_exists(filename)){
-		remove(filename);
-	}
-	
-	//create the file to be put
-	FILE *newptr = fopen(filename, "ab+");
-
-	//write the data to the file
-	int writefd = fileno(newptr);
-	write(writefd, filedata, len);
-}
-
-/*
- * putc_file() - put a file in the server's directory using checksums
- * updated to work with files containing new lines
- */
-void putc_file(char* putmsg, int lru_size, Node **mycache){
-
-	//fprintf(stderr, "PERFORMING PUTC FILE WITH MESSAGE %s \n", putmsg);
-	//parse out file name
-	char* endname = strstr(putmsg, "\n");
-	char* begname = putmsg+5;
-	int len = endname-begname;
-	char filename[len+2];
-	bzero(filename, len+2);
-	strncpy(filename, begname, len);
-	filename[len+1] = '\0';
-
-	//fprintf(stderr, "FILENAME: %s \n", filename);
-	//parse out bytes size
-	begname = endname+1;
-	endname = strstr(begname, "\n");
-	len = endname-begname;
-	int numbytes;
-	char numbytesstring[len+2];
-	bzero(numbytesstring, len+2);
-    strncpy(numbytesstring, begname, len);
-	numbytesstring[len+1] = '\0';
-	sscanf(numbytesstring, "%d", &numbytes);
-	
-	//fprintf(stderr, "BYTE SIZE %s \n", numbytesstring);
-	//parse out the checksum
-	begname = endname+1;
-	endname = strstr(begname, "\n");
-	len = endname-begname;
-	char checksum[len+1];
-	bzero(checksum, len+1);
-	strncpy(checksum, begname, len);
-	checksum[len+1] = '\0';
-
-	//fprintf(stderr, "CHECKSUM %s \n", checksum);
-	//isolate the file data
-	begname = endname+1;
-	//endname = strstr(begname, "\n");
-	endname = begname+numbytes;
-	len = endname-begname;
-	char filedata[len+2];
-	bzero(filedata, len+2);
-	strncpy(filedata, begname, len);
-	filedata[len] = '\0';
-	
-	//fprintf(stderr, "FILEDATA: %s \n", filedata);
-	
-	// if(lru_size > 0){
-
-	// 	addNode(filedata, filename, lru_size, mycache);
-	// }
-	
-	//see if the checksum matches
-	unsigned char digest[16];
-	char* data = filedata;
-	int read_bytes;
-	MD5_CTX context;
-	MD5_Init(&context);
-	MD5_Update(&context, data, len+2);
-
-
-
-	MD5_Final(digest, &context);
-
-	bool hashmatch = false;
-	char md5string[32];
-	for(int i=0; i<16; i++){
-		sprintf(md5string, "%02x", digest[i]);
-		if(strncmp(md5string, checksum+(2*i), 2) == 0){
-			hashmatch = true;
-		}
-		else{
-			hashmatch = false;
-			break;
-		}
-	}
-	
-	//TODO: have server return OKC on match otherwise return error
-	if(hashmatch){
-
-		//remove file if it exists because it will be overwritten
-		if(file_exists(filename)){
-			remove(filename);
-		}
-		
-		//create the file to be put
-		FILE *newptr = fopen(filename, "ab+");
-
-		//write the data to the file
-		int writefd = fileno(newptr);
-		write(writefd, filedata, len);
-	}
-
-}
-
-/*
- * get_file() - return a file to the client
- *
- */
- void get_file(int connfd, char* get_msg){
- 	fprintf(stderr, "GET MESSAGE: %s", get_msg);
- 	//write(connfd, get_msg, strlen(get_msg));
-
- 	char* endname = strstr(get_msg, "\n");
- 	char* begname = get_msg+4;
- 	int len = endname - begname;
- 	char filename[len+2];
- 	bzero(filename, len+2);
- 	strncpy(filename, begname, len);
- 	filename[len+1] = '\0';
- 	FILE *newptr;
- 	if(newptr = fopen(filename, "r")){
- 		size_t sendmsgsize = 6;
- 		sendmsgsize += sizeof(char*)*strlen(filename);
- 		size_t sendfilesize = get_size(filename);
- 		sendmsgsize += sendfilesize/10;
- 		sendmsgsize += sendfilesize;
- 		char sendmsg[sendmsgsize];
- 		bzero(sendmsg, sendmsgsize);
-
- 		strcat(sendmsg, "OK ");
- 		strcat(sendmsg, filename);
- 		strcat(sendmsg, "\n");
-
- 		//int sizelen = getintstringlen(sendfilesize);
- 		char sizestr[sendfilesize/10];
-
- 		sprintf(sizestr, "%d", sendfilesize);
-
-
- 		strcat(sendmsg, sizestr);
- 		strcat(sendmsg, "\n");
-
-
- 		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
- 		for(int i=0;i<sendfilesize;i++){
- 			fread(contentstr+i, 1, 1, newptr);
- 		}
- 		strcat(sendmsg, contentstr);
- 		strcat(sendmsg, "\n");
- 		write(connfd, sendmsg, strlen(sendmsg));
-
- 		
- 	}
- 	else{
- 		printf("ERROR TO FIX ANOTHER TIME");
- 	}
- }
-
- void getc_file(int connfd, char* get_msg){
- 	// fprintf(stderr, "CALLING GETC FILE \n");
- 	// fprintf(stderr, "WITH MESSAGE: %s \n", get_msg);
-
- 	char* endname = strstr(get_msg, "\n");
- 	char* begname = get_msg+5;
- 	int len = endname - begname;
- 	char filename[len+2];
- 	bzero(filename, len+2);
- 	strncpy(filename, begname, len);
- 	filename[len+1] = '\0';
- 	FILE *newptr;
-
-
- 	if(newptr = fopen(filename, "r")){
-		//initially 10 to account for 'PUT' and new line
-		//characters being sent
-		size_t sendmsgsize = 24;
-		//add size of file name
-		sendmsgsize += sizeof(char*)*strlen(filename);
-		//add size of byte number
-		size_t sendfilesize = get_size(filename);
-		sendmsgsize += sendfilesize/10;
-		//add size of file
-		sendmsgsize += sendfilesize;
-
-
-		//begin building the client's PUT message
-		char sendmsg[sendmsgsize];
-		bzero(sendmsg, sendmsgsize);
-
-		//OK <filename>\n
-		strcat(sendmsg, "OKC ");
-		strcat(sendmsg, filename);
-		strcat(sendmsg, "\n");
-
-		//<# bytes>\n
-		char sizestr[sendmsgsize/10];
-		sprintf(sizestr,"%d",sendfilesize);
-		strcat(sendmsg, sizestr);
-		strcat(sendmsg, "\n");
-		
-		//get file contents
-		char* contentstr = (char*)malloc(sizeof(char*)*sendfilesize);
-		for(int i=0;i<sendfilesize;i++){
-			fread(contentstr+i, 1, 1, newptr);
-		}
-		
-		rewind(newptr);
-
-		//get checksum
-		unsigned char digest[16];
-		char* data = contentstr;
-		int read_bytes;
-		MD5_CTX context;
-		MD5_Init(&context);
-	    MD5_Update(&context, data, sendfilesize-1);
-		MD5_Final(digest, &context);
-
-		//<md5 hash>\n
-		char md5string[32];
-		for(int i=0; i<16; i++){
-			sprintf(md5string, "%02x", digest[i]);
-			strcat(sendmsg, md5string);
-		}
-		strcat(sendmsg, "\n");
-
-		//<file contents>\n
-		strcat(sendmsg, contentstr);
-		strcat(sendmsg, "\n");
-
-		//send the PUT message
-		write(connfd, sendmsg, strlen(sendmsg));
- 	}
- 	//TODO: correct implementation of this
- 	else{
- 		printf("ERROR TO FIX ANOTHER TIME");
- 	}
- }
 
 /*
  * main() - parse command line, create a socket, handle requests
